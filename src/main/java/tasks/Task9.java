@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.Objects;
 
 /*
 Далее вы увидите код, который специально написан максимально плохо.
@@ -26,72 +27,68 @@ public class Task9 {
   // Костыль, эластик всегда выдает в топе "фальшивую персону".
   // Конвертируем начиная со второй
   public List<String> getNames(List<Person> persons) {
-    if (persons.size() == 0) {
+    //т.к. из List первый элемент удалится за ~O(n), экономичнее применить skip
+    if (persons.isEmpty()) {
       return Collections.emptyList();
     }
-    persons.remove(0);
-    return persons.stream().map(Person::firstName).collect(Collectors.toList());
+    return persons.stream()
+        .skip(1)
+        .map(Person::firstName)
+        .collect(Collectors.toList());
   }
 
   // Зачем-то нужны различные имена этих же персон (без учета фальшивой разумеется)
+  // Distinkt явно лишним был
   public Set<String> getDifferentNames(List<Person> persons) {
-    return getNames(persons).stream().distinct().collect(Collectors.toSet());
+    return new HashSet<>(getNames(persons));
   }
 
   // Тут фронтовая логика, делаем за них работу - склеиваем ФИО
+  // Логичнее выглядит без дублирования фамилии, ещё отредактировал сам метод конкатенации
   public String convertPersonToString(Person person) {
-    String result = "";
-    if (person.secondName() != null) {
-      result += person.secondName();
-    }
-
-    if (person.firstName() != null) {
-      result += " " + person.firstName();
-    }
-
-    if (person.secondName() != null) {
-      result += " " + person.secondName();
-    }
-    return result;
+    return Stream.of(person.secondName(), person.firstName())
+        .filter(Objects::nonNull)
+        .collect(Collectors.joining(" "));
   }
+
 
   // словарь id персоны -> ее имя
   public Map<Integer, String> getPersonNames(Collection<Person> persons) {
-    Map<Integer, String> map = new HashMap<>(1);
+    Map<Integer, String> map = new HashMap<>(persons.size());
     for (Person person : persons) {
-      if (!map.containsKey(person.id())) {
-        map.put(person.id(), convertPersonToString(person));
+      if (!map.containsKey(person.id())) { // Проверяем на наличие такого ключа
+        map.put(person.id(), convertPersonToString(person)); // Добавляем, если ключ отсутствует
       }
     }
     return map;
   }
 
   // есть ли совпадающие в двух коллекциях персоны?
+  // Не самый идуальный вариант по ассимптотике, зато красиво
   public boolean hasSamePersons(Collection<Person> persons1, Collection<Person> persons2) {
-    boolean has = false;
-    for (Person person1 : persons1) {
-      for (Person person2 : persons2) {
-        if (person1.equals(person2)) {
-          has = true;
-        }
-      }
-    }
-    return has;
+    Set<Person> set1 = new HashSet<>(persons1);
+    Set<Person> set2 = new HashSet<>(persons2);
+    set1.retainAll(set2);
+    return !set1.isEmpty();
   }
 
   // Посчитать число четных чисел
+  // Сделаем через встроенный count
   public long countEven(Stream<Integer> numbers) {
-    count = 0;
-    numbers.filter(num -> num % 2 == 0).forEach(num -> count++);
-    return count;
+    return numbers.filter(el -> el % 2 == 0).count();
   }
 
   // Загадка - объясните почему assert тут всегда верен
   // Пояснение в чем соль - мы перетасовали числа, обернули в HashSet, а toString() у него вернул их в сортированном порядке
   void listVsSet() {
+    // Числа от 1 до 10000 подряд включительно
     List<Integer> integers = IntStream.rangeClosed(1, 10000).boxed().collect(Collectors.toList());
     List<Integer> snapshot = new ArrayList<>(integers);
     Collections.shuffle(integers);
+    // Хорошо обусловленная хеш функция должна обеспечивать равномерное распределение по бакетам,
+    // в данном случае входные данные сами по себе уменьшают вероятность коллизии, являсь диапазоном подряд идущих чисел.
+    // Предположу, что здесь отрабатывает хеш-функция, возвращающая само число в качестве хеша,
+    // поэтому строковые представления snapshot и set и совпадают
     Set<Integer> set = new HashSet<>(integers);
     assert snapshot.toString().equals(set.toString());
   }
